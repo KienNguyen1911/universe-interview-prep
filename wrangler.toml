@@ -1,0 +1,21 @@
+name = "universe-interview-prep"
+main = "src/worker.ts"
+compatibility_date = "2024-01-01"
+type = "service"
+
+# Cloudflare AI binding
+[env.production]
+routes = [
+  { pattern = "universe-interview-prep.workers.dev/*", zone_id = "" }
+]
+
+[[env.production.bindings]]
+binding = "AI"
+type = "ai"
+
+[build]
+command = "npm run build"
+cwd = "./"
+
+[build.upload]
+format = "modules"

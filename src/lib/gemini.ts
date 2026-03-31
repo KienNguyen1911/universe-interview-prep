@@ -1,16 +1,23 @@
-import { GoogleGenAI } from "@google/genai";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const CLOUDFLARE_WORKER_URL = "https://wild-night-bbfd.ngkient1911.workers.dev";
 
 export async function detectRoleFromPlan(plan: string): Promise<string> {
   const prompt = `Analyze the following interview preparation plan and identify the target job role (e.g., "Senior Frontend Developer", "Backend Engineer", "Data Scientist"). Return ONLY the job role as a concise string, nothing else.\n\nPlan:\n${plan}`;
   
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
+    const response = await fetch(`${CLOUDFLARE_WORKER_URL}/detect-role`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
     });
-    return response.text?.trim() || "Software Engineer";
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.result?.trim() || "Software Engineer";
   } catch (error) {
     console.error("Error detecting role:", error);
     return "Software Engineer";
@@ -18,9 +25,9 @@ export async function detectRoleFromPlan(plan: string): Promise<string> {
 }
 
 export async function generateSectionContent(role: string, sectionTitle: string, fullPlan: string): Promise<string> {
-  const prompt = `You are an AI-powered Interview Preparation Assistant. You are adopting the persona of a Senior Developer matching the role of "${role}" — with deep technical expertise, real-world experience, and interview coaching ability. You have 10+ years of experience. You are confident, direct, occasionally witty — like a mentor, not a textbook.
+  const systemPrompt = `You are an AI-powered Interview Preparation Assistant. You are adopting the persona of a Senior Developer matching the role of "${role}" — with deep technical expertise, real-world experience, and interview coaching ability. You have 10+ years of experience. You are confident, direct, occasionally witty — like a mentor, not a textbook.`;
 
-The user is preparing for an interview based on the following plan:
+  const userPrompt = `The user is preparing for an interview based on the following plan:
 <plan>
 ${fullPlan}
 </plan>
@@ -51,11 +58,23 @@ You MUST respond in Markdown with the following exact structure:
 `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
-      contents: prompt,
+    const response = await fetch(`${CLOUDFLARE_WORKER_URL}/generate-content`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ 
+        system: systemPrompt,
+        prompt: userPrompt 
+      }),
     });
-    return response.text || "Failed to generate content.";
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.result || "Failed to generate content.";
   } catch (error) {
     console.error("Error generating content:", error);
     return "An error occurred while generating content. Please try again.";
